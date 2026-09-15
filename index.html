@@ -22,6 +22,11 @@
         }
         .mode-btn.active { background: #ffeb3b; color: #ff1493; border-color: #ffeb3b; }
 
+        #best-score {
+            font-size: 16px; background: rgba(255,255,255,0.25); border-radius: 20px;
+            padding: 6px 18px; margin-top: 8px;
+        }
+
         #name-input-container { display: flex; flex-direction: column; align-items: center; }
         #name-input {
             padding: 12px; font-size: 26px; text-align: center; border-radius: 20px;
@@ -37,7 +42,7 @@
             text-shadow: 1px 1px 3px #000; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         }
         
-        #music-btn {
+        #music-btn, #home-btn {
             background: rgba(255, 255, 255, 0.3); border: 2px solid #fff; border-radius: 50%;
             width: 40px; height: 40px; font-size: 20px; cursor: pointer; display: flex;
             justify-content: center; align-items: center; color: white;
@@ -105,6 +110,7 @@
         <div class="mode-selection">
             <button id="mode-name-btn" class="mode-btn active">לפי שם ✏️</button>
             <button id="mode-all-btn" class="mode-btn">כל ה-ABC 🔤</button>
+            <button id="mode-numbers-btn" class="mode-btn">מספרים 0-9 🔢</button>
         </div>
 
         <div id="name-input-container">
@@ -113,6 +119,7 @@
         </div>
 
         <button id="start-btn" class="action-btn" style="margin-top: 15px;">בואו נשחק! 🚀</button>
+        <div id="best-score">🏆 השיא שלך: <span id="best-score-value">0</span> ממתקים</div>
     </div>
 
     <div id="ui-bar">
@@ -120,6 +127,7 @@
         <div>חיים: <span id="lives-display">❤️❤️❤️</span></div>
         <div>ממתקים: <span id="stars-display">0</span>/<span id="total-stars">0</span></div>
         <button id="music-btn" title="הפעל/השתק מוזיקה">🎵</button>
+        <button id="home-btn" title="חזרה להתחלה">🏠</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -151,7 +159,8 @@
     (function() {
         const AVAILABLE_CHARACTERS = [
             { id: 'mermaid', emoji: '🧜‍♀️' }, { id: 'unicorn', emoji: '🦄' },
-            { id: 'cat', emoji: '🐱' }, { id: 'bunny', emoji: '🐰' }, { id: 'dog', emoji: '🐶' }
+            { id: 'cat', emoji: '🐱' }, { id: 'bunny', emoji: '🐰' }, { id: 'dog', emoji: '🐶' },
+            { id: 'panda', emoji: '🐼' }, { id: 'penguin', emoji: '🐧' }, { id: 'butterfly', emoji: '🦋' }
         ];
 
         const SWEETS = ['🍬', '🍭', '🍩', '🍦'];
@@ -184,6 +193,57 @@
             'Y': [{x:0.2,y:0.2}, {x:0.5,y:0.5}, {x:0.8,y:0.2}, {x:0.5,y:0.5}, {x:0.5,y:0.8}],
             'Z': [{x:0.2,y:0.2}, {x:0.8,y:0.2}, {x:0.2,y:0.8}, {x:0.8,y:0.8}]
         };
+
+        const NUMBERS = {
+            '0': [{x:0.5,y:0.1}, {x:0.2,y:0.3}, {x:0.2,y:0.7}, {x:0.5,y:0.9}, {x:0.8,y:0.7}, {x:0.8,y:0.3}, {x:0.5,y:0.1}],
+            '1': [{x:0.35,y:0.35}, {x:0.5,y:0.2}, {x:0.5,y:0.8}],
+            '2': [{x:0.2,y:0.3}, {x:0.35,y:0.15}, {x:0.65,y:0.15}, {x:0.8,y:0.35}, {x:0.2,y:0.8}, {x:0.8,y:0.8}],
+            '3': [{x:0.25,y:0.2}, {x:0.75,y:0.2}, {x:0.45,y:0.5}, {x:0.7,y:0.5}, {x:0.75,y:0.75}, {x:0.25,y:0.8}],
+            '4': [{x:0.65,y:0.1}, {x:0.2,y:0.6}, {x:0.8,y:0.6}, {x:0.65,y:0.6}, {x:0.65,y:0.85}],
+            '5': [{x:0.75,y:0.15}, {x:0.25,y:0.15}, {x:0.25,y:0.5}, {x:0.6,y:0.5}, {x:0.8,y:0.65}, {x:0.6,y:0.85}, {x:0.25,y:0.8}],
+            '6': [{x:0.7,y:0.15}, {x:0.35,y:0.3}, {x:0.25,y:0.6}, {x:0.35,y:0.85}, {x:0.65,y:0.85}, {x:0.8,y:0.65}, {x:0.65,y:0.5}, {x:0.35,y:0.55}],
+            '7': [{x:0.2,y:0.15}, {x:0.8,y:0.15}, {x:0.4,y:0.85}],
+            '8': [{x:0.5,y:0.15}, {x:0.3,y:0.3}, {x:0.5,y:0.45}, {x:0.3,y:0.6}, {x:0.3,y:0.75}, {x:0.5,y:0.85}, {x:0.7,y:0.75}, {x:0.7,y:0.6}, {x:0.5,y:0.45}, {x:0.7,y:0.3}, {x:0.5,y:0.15}],
+            '9': [{x:0.65,y:0.5}, {x:0.35,y:0.45}, {x:0.3,y:0.3}, {x:0.45,y:0.15}, {x:0.65,y:0.25}, {x:0.65,y:0.6}, {x:0.5,y:0.85}, {x:0.3,y:0.8}]
+        };
+
+        const SHAPES = Object.assign({}, ALPHABET, NUMBERS);
+
+        const STATS_KEY = 'lettersGameStats';
+        function loadStats() {
+            try {
+                const raw = JSON.parse(localStorage.getItem(STATS_KEY));
+                if (raw && typeof raw === 'object') {
+                    return { bestStars: raw.bestStars || 0, unlockedChars: Array.isArray(raw.unlockedChars) ? raw.unlockedChars : [AVAILABLE_CHARACTERS[0].id] };
+                }
+            } catch (e) {}
+            return { bestStars: 0, unlockedChars: [AVAILABLE_CHARACTERS[0].id] };
+        }
+        function saveStats(stats) {
+            try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch (e) {}
+        }
+
+        let audioCtx = null;
+        function playTone(freq, duration, type) {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type || 'sine';
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                osc.start(); osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {}
+        }
+        function playCollectSound() { playTone(880, 0.15, 'triangle'); }
+        function playChestSound() {
+            [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.25, 'triangle'), i * 90));
+        }
+        function playVictorySound() {
+            [523, 587, 659, 784, 880, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.3, 'square'), i * 120));
+        }
 
         class Confetti {
             constructor(w, h) {
@@ -244,14 +304,16 @@
 
                 this.targetTouch = null;
                 this.playerSize = 45;
-                this.pathRadius = 25; 
+                this.pathRadius = 25;
                 this.selectedCharacter = AVAILABLE_CHARACTERS[0];
-                
+
                 this.items = [];
                 this.particles = [];
                 this.confettiList = [];
                 this.bgDecorations = [];
                 this.magnetTime = 0;
+                this.totalGameStars = 0;
+                this.stats = loadStats();
 
                 this.initBgDecorations();
                 this.initControls();
@@ -319,7 +381,7 @@
                 const h = this.canvas.height;
 
                 const letterChar = this.letterSequence[this.currentLetterIdx] || 'A';
-                const pointsDef = ALPHABET[letterChar] || ALPHABET['A'];
+                const pointsDef = SHAPES[letterChar] || SHAPES['A'];
                 
                 this.segments = [];
                 this.totalPathLength = 0;
@@ -422,18 +484,21 @@
 
                     if (dist < (this.playerSize / 2 + item.size / 2 + 10) || (this.pathProgress >= item.reqLength && item.x === item.reqLength)) {
                         item.collected = true;
-                        this.createFireworks(item.x, item.y); 
+                        this.createFireworks(item.x, item.y);
 
                         this.starsCollected++;
+                        this.totalGameStars++;
                         const letterChar = this.letterSequence[this.currentLetterIdx];
                         this.updateUI(letterChar);
 
                         if (item.type === 'magnet') {
-                            this.magnetTime = 300; 
-                        } 
-                        
-                        if (item.type === 'chest') {
-                            setTimeout(() => this.completeLevel(), 500); 
+                            this.magnetTime = 300;
+                            playCollectSound();
+                        } else if (item.type === 'chest') {
+                            playChestSound();
+                            setTimeout(() => this.completeLevel(), 500);
+                        } else {
+                            playCollectSound();
                         }
                     }
                 });
@@ -441,8 +506,15 @@
 
             triggerGrandVictory() {
                 this.isGrandVictory = true;
-                document.getElementById('victory-name-display').innerText = this.mode === 'name' ? this.playerName : "ABC 🌟";
+                const victoryLabel = this.mode === 'name' ? this.playerName : (this.mode === 'numbers' ? '0-9 🌟' : 'ABC 🌟');
+                document.getElementById('victory-name-display').innerText = victoryLabel;
                 document.getElementById('victory-screen').classList.remove('hidden');
+                playVictorySound();
+
+                if (this.totalGameStars > this.stats.bestStars) {
+                    this.stats.bestStars = this.totalGameStars;
+                    saveStats(this.stats);
+                }
 
                 for(let i=0; i<70; i++) {
                     this.confettiList.push(new Confetti(this.canvas.width, this.canvas.height));
@@ -457,7 +529,15 @@
             completeLevel() {
                 this.isLevelComplete = true;
                 this.currentLetterIdx++;
-                
+
+                if (this.currentLetterIdx < AVAILABLE_CHARACTERS.length) {
+                    const newCharId = AVAILABLE_CHARACTERS[this.currentLetterIdx].id;
+                    if (!this.stats.unlockedChars.includes(newCharId)) {
+                        this.stats.unlockedChars.push(newCharId);
+                        saveStats(this.stats);
+                    }
+                }
+
                 if (this.currentLetterIdx >= this.letterSequence.length) {
                     this.triggerGrandVictory();
                     this.currentLetterIdx = 0; 
@@ -475,7 +555,7 @@
                 const charContainer = document.getElementById('characters-list');
                 charContainer.innerHTML = '';
                 AVAILABLE_CHARACTERS.forEach((char, index) => {
-                    const isUnlocked = this.currentLetterIdx >= index; 
+                    const isUnlocked = this.currentLetterIdx >= index || this.stats.unlockedChars.includes(char.id);
                     const div = document.createElement('div');
                     div.className = `char-card ${this.selectedCharacter.id === char.id ? 'selected' : ''}`;
                     div.style.opacity = isUnlocked ? '1' : '0.3';
@@ -586,9 +666,16 @@
             let selectedMode = 'name';
             const modeNameBtn = document.getElementById('mode-name-btn');
             const modeAllBtn = document.getElementById('mode-all-btn');
+            const modeNumbersBtn = document.getElementById('mode-numbers-btn');
             const nameContainer = document.getElementById('name-input-container');
             const bgMusic = document.getElementById('bg-music');
             const musicBtn = document.getElementById('music-btn');
+            const homeBtn = document.getElementById('home-btn');
+
+            const stats = loadStats();
+            document.getElementById('best-score-value').innerText = stats.bestStars;
+
+            homeBtn.onclick = () => location.reload();
 
             let isMusicPlaying = false;
 
@@ -611,6 +698,7 @@
                 selectedMode = 'name';
                 modeNameBtn.classList.add('active');
                 modeAllBtn.classList.remove('active');
+                modeNumbersBtn.classList.remove('active');
                 nameContainer.style.display = 'flex';
             };
 
@@ -618,6 +706,15 @@
                 selectedMode = 'all';
                 modeAllBtn.classList.add('active');
                 modeNameBtn.classList.remove('active');
+                modeNumbersBtn.classList.remove('active');
+                nameContainer.style.display = 'none';
+            };
+
+            modeNumbersBtn.onclick = () => {
+                selectedMode = 'numbers';
+                modeNumbersBtn.classList.add('active');
+                modeNameBtn.classList.remove('active');
+                modeAllBtn.classList.remove('active');
                 nameContainer.style.display = 'none';
             };
 
@@ -631,9 +728,11 @@
 
                     if (selectedMode === 'name') {
                         let nameVal = document.getElementById('name-input').value.trim().toUpperCase().replace(/[^A-Z]/g, '');
-                        if (nameVal.length === 0) nameVal = "NETA"; 
+                        if (nameVal.length === 0) nameVal = "NETA";
                         gameInstance.playerName = nameVal;
                         gameInstance.letterSequence = nameVal.split('');
+                    } else if (selectedMode === 'numbers') {
+                        gameInstance.letterSequence = Object.keys(NUMBERS);
                     } else {
                         gameInstance.letterSequence = Object.keys(ALPHABET);
                     }
