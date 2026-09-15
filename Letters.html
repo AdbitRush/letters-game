@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ממלכת האותיות והממתקים</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; -webkit-user-select: none; margin: 0; padding: 0; }
+        body { background-color: #ffb6c1; font-family: 'Segoe UI', Tahoma, sans-serif; color: white; text-align: center; overflow: hidden; width: 100vw; height: 100vh; position: relative; }
+        
+        #start-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #ff1493, #ff69b4, #ff8da1);
+            display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 50;
+        }
+        #start-screen h1 { font-size: 38px; text-shadow: 2px 2px 6px rgba(0,0,0,0.3); margin-bottom: 10px; }
+        
+        .mode-selection { display: flex; gap: 15px; margin: 15px 0; }
+        .mode-btn {
+            background: rgba(255, 255, 255, 0.3); border: 3px solid #fff; color: white;
+            padding: 10px 20px; font-size: 18px; font-weight: bold; border-radius: 20px; cursor: pointer;
+        }
+        .mode-btn.active { background: #ffeb3b; color: #ff1493; border-color: #ffeb3b; }
+
+        #name-input-container { display: flex; flex-direction: column; align-items: center; }
+        #name-input {
+            padding: 12px; font-size: 26px; text-align: center; border-radius: 20px;
+            border: 4px solid #fff; outline: none; margin: 10px; width: 240px;
+            text-transform: uppercase; color: #ff1493; font-weight: bold;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        }
+
+        #ui-bar {
+            position: absolute; top: 0; left: 0; width: 100%; height: 65px;
+            display: flex; justify-content: space-around; align-items: center; 
+            background: rgba(255, 20, 147, 0.95); font-weight: bold; font-size: 18px;
+            text-shadow: 1px 1px 3px #000; z-index: 10; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        #music-btn {
+            background: rgba(255, 255, 255, 0.3); border: 2px solid #fff; border-radius: 50%;
+            width: 40px; height: 40px; font-size: 20px; cursor: pointer; display: flex;
+            justify-content: center; align-items: center; color: white;
+        }
+
+        #gameCanvas {
+            position: absolute; top: 65px; left: 0; width: 100%; height: calc(100% - 65px);
+            display: block; touch-action: none; background: #ffe4e1;
+        }
+        
+        #modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 105, 180, 0.96); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 20;
+        }
+        #modal.hidden { display: none !important; }
+        
+        #victory-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 20, 147, 0.98); display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 30;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        #victory-screen.hidden { display: none !important; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+        .victory-title { font-size: 30px; font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .victory-name { 
+            font-size: 50px; font-weight: 900; color: #ffeb3b; 
+            text-shadow: 3px 3px 0px #ff1493, 6px 6px 15px rgba(0,0,0,0.4); 
+            letter-spacing: 4px; margin: 15px 0; animation: pulse 1.5s infinite alternate;
+        }
+        @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+
+        .dancing-chars { font-size: 45px; margin: 15px 0; display: flex; gap: 12px; }
+        .dancing-chars span { animation: bounce 0.6s infinite alternate; display: inline-block; }
+        .dancing-chars span:nth-child(2) { animation-delay: 0.1s; }
+        .dancing-chars span:nth-child(3) { animation-delay: 0.2s; }
+        .dancing-chars span:nth-child(4) { animation-delay: 0.3s; }
+        .dancing-chars span:nth-child(5) { animation-delay: 0.4s; }
+
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
+
+        #characters-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin: 20px 0; }
+        .char-card {
+            border: 3px solid #fff; background: rgba(255,255,255,0.4); border-radius: 15px;
+            padding: 10px 15px; font-size: 35px; cursor: pointer; transition: transform 0.2s;
+        }
+        .char-card.selected { border-color: #ffeb3b; background: rgba(255, 235, 59, 0.7); transform: scale(1.15); }
+        
+        .action-btn {
+            background: #ffeb3b; color: #ff1493; border: 2px solid #fff; padding: 14px 35px;
+            font-size: 22px; font-weight: bold; border-radius: 35px; cursor: pointer;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.3); transition: transform 0.2s;
+        }
+        .action-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body>
+    <div id="start-screen">
+        <h1>ממלכת האותיות! 🦄</h1>
+        <p style="font-size: 20px;">בחר מצב משחק:</p>
+        
+        <div class="mode-selection">
+            <button id="mode-name-btn" class="mode-btn active">לפי שם ✏️</button>
+            <button id="mode-all-btn" class="mode-btn">כל ה-ABC 🔤</button>
+        </div>
+
+        <div id="name-input-container">
+            <p style="font-size: 18px;">מה השם שלך באנגלית?</p>
+            <input type="text" id="name-input" placeholder="NETA" maxlength="8">
+        </div>
+
+        <button id="start-btn" class="action-btn" style="margin-top: 15px;">בואו נשחק! 🚀</button>
+    </div>
+
+    <div id="ui-bar">
+        <div id="letter-display" style="font-size: 28px; color: #ffeb3b;">A</div>
+        <div>חיים: <span id="lives-display">❤️❤️❤️</span></div>
+        <div>ממתקים: <span id="stars-display">0</span>/<span id="total-stars">0</span></div>
+        <button id="music-btn" title="הפעל/השתק מוזיקה">🎵</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="modal" class="hidden">
+        <h2 id="modal-title">כל הכבוד! 🎂</h2>
+        <p id="modal-text">כתבת את האות בהצלחה!</p>
+        <div id="character-selection">
+            <div id="characters-list"></div>
+        </div>
+        <button id="next-level-btn" class="action-btn">המשך לאות הבאה 🚀</button>
+    </div>
+
+    <div id="victory-screen" class="hidden">
+        <div class="victory-title">👑 אלופים! סיימתם את המשחק! 👑</div>
+        <div id="victory-name-display" class="victory-name">NETA</div>
+        <div class="dancing-chars">
+            <span>🧜‍♀️</span><span>🦄</span><span>🐱</span><span>🐰</span><span>🐶</span>
+        </div>
+        <button id="replay-btn" class="action-btn">לשחק שוב! 🌟</button>
+    </div>
+
+    <!-- מוזיקת רקע נעימה -->
+    <audio id="bg-music" loop preload="auto">
+        <source src="https://directory.audio/media/songs_lo/free-music-happy-days.mp3" type="audio/mpeg">
+    </audio>
+
+    <script>
+    (function() {
+        const AVAILABLE_CHARACTERS = [
+            { id: 'mermaid', emoji: '🧜‍♀️' }, { id: 'unicorn', emoji: '🦄' },
+            { id: 'cat', emoji: '🐱' }, { id: 'bunny', emoji: '🐰' }, { id: 'dog', emoji: '🐶' }
+        ];
+
+        const SWEETS = ['🍬', '🍭', '🍩', '🍦'];
+
+        const ALPHABET = {
+            'A': [{x:0.2,y:0.8}, {x:0.5,y:0.2}, {x:0.8,y:0.8}, {x:0.65,y:0.5}, {x:0.35,y:0.5}],
+            'B': [{x:0.2,y:0.2}, {x:0.2,y:0.8}, {x:0.2,y:0.2}, {x:0.7,y:0.3}, {x:0.4,y:0.5}, {x:0.7,y:0.7}, {x:0.2,y:0.8}],
+            'C': [{x:0.8,y:0.2}, {x:0.5,y:0.1}, {x:0.2,y:0.4}, {x:0.2,y:0.6}, {x:0.5,y:0.9}, {x:0.8,y:0.8}],
+            'D': [{x:0.2,y:0.2}, {x:0.2,y:0.8}, {x:0.2,y:0.2}, {x:0.7,y:0.3}, {x:0.8,y:0.5}, {x:0.7,y:0.7}, {x:0.2,y:0.8}],
+            'E': [{x:0.8,y:0.2}, {x:0.2,y:0.2}, {x:0.2,y:0.5}, {x:0.6,y:0.5}, {x:0.2,y:0.5}, {x:0.2,y:0.8}, {x:0.8,y:0.8}],
+            'F': [{x:0.8,y:0.2}, {x:0.2,y:0.2}, {x:0.2,y:0.5}, {x:0.6,y:0.5}, {x:0.2,y:0.5}, {x:0.2,y:0.8}],
+            'G': [{x:0.8,y:0.2}, {x:0.5,y:0.1}, {x:0.2,y:0.5}, {x:0.5,y:0.9}, {x:0.8,y:0.8}, {x:0.8,y:0.5}, {x:0.5,y:0.5}],
+            'H': [{x:0.2,y:0.2}, {x:0.2,y:0.8}, {x:0.2,y:0.5}, {x:0.8,y:0.5}, {x:0.8,y:0.2}, {x:0.8,y:0.8}],
+            'I': [{x:0.5,y:0.2}, {x:0.5,y:0.8}],
+            'J': [{x:0.8,y:0.2}, {x:0.5,y:0.2}, {x:0.5,y:0.8}, {x:0.2,y:0.8}, {x:0.2,y:0.6}],
+            'K': [{x:0.2,y:0.2}, {x:0.2,y:0.8}, {x:0.2,y:0.5}, {x:0.8,y:0.2}, {x:0.2,y:0.5}, {x:0.8,y:0.8}],
+            'L': [{x:0.2,y:0.2}, {x:0.2,y:0.8}, {x:0.8,y:0.8}],
+            'M': [{x:0.1,y:0.8}, {x:0.1,y:0.2}, {x:0.5,y:0.6}, {x:0.9,y:0.2}, {x:0.9,y:0.8}],
+            'N': [{x:0.2,y:0.8}, {x:0.2,y:0.2}, {x:0.8,y:0.8}, {x:0.8,y:0.2}],
+            'O': [{x:0.5,y:0.1}, {x:0.2,y:0.3}, {x:0.2,y:0.7}, {x:0.5,y:0.9}, {x:0.8,y:0.7}, {x:0.8,y:0.3}, {x:0.5,y:0.1}],
+            'P': [{x:0.2,y:0.8}, {x:0.2,y:0.2}, {x:0.7,y:0.2}, {x:0.8,y:0.4}, {x:0.7,y:0.5}, {x:0.2,y:0.5}],
+            'Q': [{x:0.5,y:0.1}, {x:0.2,y:0.3}, {x:0.2,y:0.7}, {x:0.5,y:0.9}, {x:0.8,y:0.7}, {x:0.8,y:0.3}, {x:0.5,y:0.1}, {x:0.6,y:0.7}, {x:0.9,y:0.9}],
+            'R': [{x:0.2,y:0.8}, {x:0.2,y:0.2}, {x:0.7,y:0.2}, {x:0.8,y:0.35}, {x:0.7,y:0.5}, {x:0.2,y:0.5}, {x:0.8,y:0.8}],
+            'S': [{x:0.8,y:0.2}, {x:0.3,y:0.2}, {x:0.2,y:0.4}, {x:0.5,y:0.5}, {x:0.8,y:0.6}, {x:0.7,y:0.8}, {x:0.2,y:0.8}],
+            'T': [{x:0.1,y:0.2}, {x:0.9,y:0.2}, {x:0.5,y:0.2}, {x:0.5,y:0.8}],
+            'U': [{x:0.2,y:0.2}, {x:0.2,y:0.7}, {x:0.5,y:0.9}, {x:0.8,y:0.7}, {x:0.8,y:0.2}],
+            'V': [{x:0.2,y:0.2}, {x:0.5,y:0.8}, {x:0.8,y:0.2}],
+            'W': [{x:0.1,y:0.2}, {x:0.3,y:0.8}, {x:0.5,y:0.4}, {x:0.7,y:0.8}, {x:0.9,y:0.2}],
+            'X': [{x:0.2,y:0.2}, {x:0.8,y:0.8}, {x:0.5,y:0.5}, {x:0.8,y:0.2}, {x:0.2,y:0.8}],
+            'Y': [{x:0.2,y:0.2}, {x:0.5,y:0.5}, {x:0.8,y:0.2}, {x:0.5,y:0.5}, {x:0.5,y:0.8}],
+            'Z': [{x:0.2,y:0.2}, {x:0.8,y:0.2}, {x:0.2,y:0.8}, {x:0.8,y:0.8}]
+        };
+
+        class Confetti {
+            constructor(w, h) {
+                this.x = Math.random() * w;
+                this.y = Math.random() * h - h;
+                this.size = 8 + Math.random() * 10;
+                this.speedY = 2 + Math.random() * 4;
+                this.speedX = (Math.random() - 0.5) * 2;
+                this.color = ['#ffeb3b', '#ff1493', '#00bcd4', '#7b00ff', '#ff5722', '#4caf50'][Math.floor(Math.random() * 6)];
+                this.rotation = Math.random() * 360;
+                this.rotSpeed = (Math.random() - 0.5) * 10;
+            }
+            update(h) {
+                this.y += this.speedY; this.x += this.speedX; this.rotation += this.rotSpeed;
+                if (this.y > h) this.y = -20;
+            }
+            draw(ctx) {
+                ctx.save(); ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation * Math.PI / 180);
+                ctx.fillStyle = this.color; ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+                ctx.restore();
+            }
+        }
+
+        class Particle {
+            constructor(x, y) {
+                this.x = x; this.y = y;
+                this.vx = (Math.random() - 0.5) * 16;
+                this.vy = (Math.random() - 0.5) * 16;
+                this.life = 1;
+                this.color = ['#ffeb3b', '#ff1493', '#00bcd4', '#fff', '#7b00ff'][Math.floor(Math.random() * 5)];
+            }
+            update() { this.x += this.vx; this.y += this.vy; this.life -= 0.03; }
+            draw(ctx) {
+                ctx.fillStyle = this.color; ctx.globalAlpha = Math.max(0, this.life);
+                ctx.beginPath(); ctx.arc(this.x, this.y, 6, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
+            }
+        }
+
+        class Game {
+            constructor() {
+                this.canvas = document.getElementById('gameCanvas');
+                this.ctx = this.canvas.getContext('2d');
+
+                this.mode = 'name'; // 'name' או 'all'
+                this.playerName = "NETA";
+                this.letterSequence = ["N","E","T","A"];
+                this.currentLetterIdx = 0;
+                
+                this.lives = 3;
+                this.starsCollected = 0;
+                this.isLevelComplete = false;
+                this.isGrandVictory = false;
+                
+                this.pathProgress = 0; 
+                this.totalPathLength = 0;
+                this.segments = [];
+
+                this.targetTouch = null;
+                this.playerSize = 45;
+                this.pathRadius = 25; 
+                this.selectedCharacter = AVAILABLE_CHARACTERS[0];
+                
+                this.items = [];
+                this.particles = [];
+                this.confettiList = [];
+                this.bgDecorations = [];
+                this.magnetTime = 0;
+
+                this.initBgDecorations();
+                this.initControls();
+                
+                document.getElementById('next-level-btn').onclick = () => this.nextLevel();
+                document.getElementById('replay-btn').onclick = () => {
+                    document.getElementById('victory-screen').classList.add('hidden');
+                    document.getElementById('start-screen').style.display = 'flex';
+                };
+
+                window.addEventListener('resize', () => this.resizeCanvas());
+            }
+
+            initBgDecorations() {
+                this.bgDecorations = [];
+                const decos = ['☁️', '🍬', '🎈', '✨'];
+                for(let i=0; i<8; i++) {
+                    this.bgDecorations.push({
+                        x: Math.random() * window.innerWidth,
+                        y: Math.random() * window.innerHeight,
+                        icon: decos[Math.floor(Math.random() * decos.length)],
+                        speed: 0.3 + Math.random() * 0.5,
+                        size: 24 + Math.random() * 16
+                    });
+                }
+            }
+
+            resizeCanvas() {
+                this.canvas.width = this.canvas.clientWidth || window.innerWidth;
+                this.canvas.height = this.canvas.clientHeight || (window.innerHeight - 65);
+                if (!this.isLevelComplete && this.totalPathLength > 0) {
+                    this.startLevel(); 
+                }
+            }
+
+            initControls() {
+                const handleTouch = (e) => {
+                    e.preventDefault();
+                    const rect = this.canvas.getBoundingClientRect();
+                    const touch = e.touches ? e.touches[0] : e;
+                    this.targetTouch = { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
+                };
+                this.canvas.addEventListener('touchstart', handleTouch, { passive: false });
+                this.canvas.addEventListener('touchmove', handleTouch, { passive: false });
+                this.canvas.addEventListener('mousedown', handleTouch);
+                this.canvas.addEventListener('mousemove', (e) => { if (e.buttons === 1) handleTouch(e); });
+                window.addEventListener('mouseup', () => this.targetTouch = null);
+                window.addEventListener('touchend', () => this.targetTouch = null);
+            }
+
+            startLevel() {
+                this.isLevelComplete = false;
+                this.isGrandVictory = false;
+                this.pathProgress = 0;
+                this.targetTouch = null;
+                this.magnetTime = 0;
+                document.getElementById('modal').classList.add('hidden');
+                document.getElementById('victory-screen').classList.add('hidden');
+                
+                this.items = [];
+                this.particles = [];
+                this.confettiList = [];
+
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+
+                const letterChar = this.letterSequence[this.currentLetterIdx] || 'A';
+                const pointsDef = ALPHABET[letterChar] || ALPHABET['A'];
+                
+                this.segments = [];
+                this.totalPathLength = 0;
+
+                for (let i = 0; i < pointsDef.length - 1; i++) {
+                    let p1 = { x: pointsDef[i].x * w, y: pointsDef[i].y * h };
+                    let p2 = { x: pointsDef[i+1].x * w, y: pointsDef[i+1].y * h };
+                    let dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                    this.segments.push({ p1, p2, dist, accumLength: this.totalPathLength });
+                    this.totalPathLength += dist;
+                }
+
+                this.totalSweetsNeeded = 5;
+                
+                for (let i = 1; i <= this.totalSweetsNeeded; i++) {
+                    let targetLen = (i / this.totalSweetsNeeded) * this.totalPathLength;
+                    let pos = this.getPointAtLength(targetLen);
+                    
+                    let isMagnet = (i === 2); 
+                    
+                    this.items.push({
+                        x: pos.x, y: pos.y, reqLength: targetLen,
+                        size: i === this.totalSweetsNeeded ? 50 : 35,
+                        type: i === this.totalSweetsNeeded ? 'chest' : (isMagnet ? 'magnet' : 'sweet'),
+                        icon: i === this.totalSweetsNeeded ? '🎂' : (isMagnet ? '🧲' : SWEETS[i % SWEETS.length]),
+                        collected: false
+                    });
+                }
+
+                this.starsCollected = 0;
+                this.updateUI(letterChar);
+            }
+
+            getPointAtLength(len) {
+                if (this.segments.length === 0) return {x: 50, y: 50}; 
+                if (len <= 0) return this.segments[0].p1;
+                if (len >= this.totalPathLength) return this.segments[this.segments.length-1].p2;
+                
+                for (let seg of this.segments) {
+                    if (len >= seg.accumLength && len <= seg.accumLength + seg.dist) {
+                        let ratio = seg.dist === 0 ? 0 : (len - seg.accumLength) / seg.dist;
+                        return { x: seg.p1.x + (seg.p2.x - seg.p1.x) * ratio, y: seg.p1.y + (seg.p2.y - seg.p1.y) * ratio };
+                    }
+                }
+                return this.segments[0].p1;
+            }
+
+            updateUI(letterStr) {
+                document.getElementById('letter-display').innerText = letterStr;
+                document.getElementById('lives-display').innerText = '❤️'.repeat(Math.max(0, this.lives));
+                document.getElementById('stars-display').innerText = this.starsCollected;
+                document.getElementById('total-stars').innerText = this.totalSweetsNeeded;
+            }
+
+            handleInput() {
+                if (this.isLevelComplete || !this.targetTouch) return;
+
+                let bestLen = this.pathProgress;
+                let minD = Infinity;
+
+                let searchStart = Math.max(0, this.pathProgress - 40);
+                let searchEnd = Math.min(this.totalPathLength, this.pathProgress + 60);
+
+                for (let l = searchStart; l <= searchEnd; l += 5) {
+                    let pt = this.getPointAtLength(l);
+                    let d = Math.hypot(pt.x - this.targetTouch.x, pt.y - this.targetTouch.y);
+                    if (d < minD) { minD = d; bestLen = l; }
+                }
+
+                if (minD < this.pathRadius * 3) {
+                    this.pathProgress = bestLen;
+                }
+            }
+
+            createFireworks(x, y) {
+                for (let i = 0; i < 30; i++) this.particles.push(new Particle(x, y));
+            }
+
+            checkCollisions() {
+                if (this.isLevelComplete) return;
+
+                let playerPos = this.getPointAtLength(this.pathProgress);
+
+                this.items.forEach(item => {
+                    if (item.collected) return;
+
+                    if (this.magnetTime > 0 && item.type === 'sweet') {
+                        let pullDist = Math.hypot(playerPos.x - item.x, playerPos.y - item.y);
+                        if (pullDist < 120) {
+                            item.x += (playerPos.x - item.x) * 0.15;
+                            item.y += (playerPos.y - item.y) * 0.15;
+                        }
+                    }
+
+                    const dist = Math.hypot(playerPos.x - item.x, playerPos.y - item.y);
+                    
+                    if (item.type === 'chest' && this.starsCollected < this.totalSweetsNeeded - 1) {
+                        return; 
+                    }
+
+                    if (dist < (this.playerSize / 2 + item.size / 2 + 10) || (this.pathProgress >= item.reqLength && item.x === item.reqLength)) {
+                        item.collected = true;
+                        this.createFireworks(item.x, item.y); 
+
+                        this.starsCollected++;
+                        const letterChar = this.letterSequence[this.currentLetterIdx];
+                        this.updateUI(letterChar);
+
+                        if (item.type === 'magnet') {
+                            this.magnetTime = 300; 
+                        } 
+                        
+                        if (item.type === 'chest') {
+                            setTimeout(() => this.completeLevel(), 500); 
+                        }
+                    }
+                });
+            }
+
+            triggerGrandVictory() {
+                this.isGrandVictory = true;
+                document.getElementById('victory-name-display').innerText = this.mode === 'name' ? this.playerName : "ABC 🌟";
+                document.getElementById('victory-screen').classList.remove('hidden');
+
+                for(let i=0; i<70; i++) {
+                    this.confettiList.push(new Confetti(this.canvas.width, this.canvas.height));
+                }
+
+                let fireworkInterval = setInterval(() => {
+                    if (!this.isGrandVictory) { clearInterval(fireworkInterval); return; }
+                    this.createFireworks(Math.random() * this.canvas.width, Math.random() * this.canvas.height * 0.7);
+                }, 400);
+            }
+
+            completeLevel() {
+                this.isLevelComplete = true;
+                this.currentLetterIdx++;
+                
+                if (this.currentLetterIdx >= this.letterSequence.length) {
+                    this.triggerGrandVictory();
+                    this.currentLetterIdx = 0; 
+                } else {
+                    const modal = document.getElementById('modal');
+                    document.getElementById('modal-title').innerText = "מעולה! 🎂";
+                    document.getElementById('modal-text').innerText = "בוא נמשיך לאות הבאה!";
+                    document.getElementById('next-level-btn').innerText = "המשך 🚀";
+                    modal.classList.remove('hidden');
+                    this.renderCharacterSelection();
+                }
+            }
+
+            renderCharacterSelection() {
+                const charContainer = document.getElementById('characters-list');
+                charContainer.innerHTML = '';
+                AVAILABLE_CHARACTERS.forEach((char, index) => {
+                    const isUnlocked = this.currentLetterIdx >= index; 
+                    const div = document.createElement('div');
+                    div.className = `char-card ${this.selectedCharacter.id === char.id ? 'selected' : ''}`;
+                    div.style.opacity = isUnlocked ? '1' : '0.3';
+                    div.innerText = char.emoji;
+                    if (isUnlocked) {
+                        div.onclick = () => { this.selectedCharacter = char; this.renderCharacterSelection(); };
+                    }
+                    charContainer.appendChild(div);
+                });
+            }
+
+            nextLevel() { this.startLevel(); }
+
+            drawBackgroundDecorations() {
+                this.bgDecorations.forEach(dec => {
+                    dec.y -= dec.speed;
+                    if (dec.y < -30) dec.y = this.canvas.height + 30;
+                    
+                    this.ctx.font = `${dec.size}px Arial`;
+                    this.ctx.textAlign = 'center';
+                    this.ctx.globalAlpha = 0.4;
+                    this.ctx.fillText(dec.icon, dec.x, dec.y);
+                    this.ctx.globalAlpha = 1;
+                });
+            }
+
+            drawPath() {
+                if (this.segments.length === 0) return;
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.segments[0].p1.x, this.segments[0].p1.y);
+                this.segments.forEach(seg => this.ctx.lineTo(seg.p2.x, seg.p2.y));
+                this.ctx.strokeStyle = '#ff1493'; this.ctx.lineWidth = 60;
+                this.ctx.lineCap = 'round'; this.ctx.lineJoin = 'round'; this.ctx.stroke();
+                this.ctx.strokeStyle = '#fff0f5'; this.ctx.lineWidth = 50; this.ctx.stroke();
+
+                if (this.pathProgress > 0) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(this.segments[0].p1.x, this.segments[0].p1.y);
+                    let drawnLen = 0;
+                    for (let seg of this.segments) {
+                        if (drawnLen + seg.dist <= this.pathProgress) {
+                            this.ctx.lineTo(seg.p2.x, seg.p2.y);
+                            drawnLen += seg.dist;
+                        } else {
+                            let ratio = seg.dist === 0 ? 0 : (this.pathProgress - drawnLen) / seg.dist;
+                            this.ctx.lineTo(seg.p1.x + (seg.p2.x - seg.p1.x) * ratio, seg.p1.y + (seg.p2.y - seg.p1.y) * ratio);
+                            break;
+                        }
+                    }
+                    this.ctx.strokeStyle = '#ffeb3b'; this.ctx.lineWidth = 50; this.ctx.stroke();
+                }
+            }
+
+            draw() {
+                this.ctx.fillStyle = "#ffe4e1"; this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                this.drawBackgroundDecorations();
+
+                if (this.segments.length > 0) this.drawPath();
+
+                let playerPos = this.getPointAtLength(this.pathProgress);
+
+                if (this.magnetTime > 0) {
+                    this.magnetTime--;
+                    this.ctx.beginPath();
+                    this.ctx.arc(playerPos.x, playerPos.y, 120, 0, Math.PI * 2);
+                    this.ctx.fillStyle = `rgba(0, 255, 255, ${Math.abs(Math.sin(this.magnetTime/10)) * 0.3})`;
+                    this.ctx.fill();
+                }
+
+                this.items.forEach(item => {
+                    if (item.collected) return;
+                    this.ctx.font = `${item.size}px Arial`;
+                    this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+                    
+                    if (item.type === 'chest' && this.starsCollected < this.totalSweetsNeeded - 1) {
+                        this.ctx.fillText('🔒', item.x, item.y);
+                    } else {
+                        this.ctx.fillText(item.icon, item.x, item.y);
+                    }
+                });
+
+                this.confettiList.forEach(c => {
+                    c.update(this.canvas.height);
+                    c.draw(this.ctx);
+                });
+
+                for (let i = this.particles.length - 1; i >= 0; i--) {
+                    this.particles[i].update(); this.particles[i].draw(this.ctx);
+                    if (this.particles[i].life <= 0) this.particles.splice(i, 1);
+                }
+
+                this.ctx.font = `${this.playerSize}px Arial`;
+                this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(this.selectedCharacter.emoji, playerPos.x, playerPos.y);
+            }
+
+            gameLoop = () => {
+                this.handleInput();
+                this.checkCollisions();
+                this.draw();
+                requestAnimationFrame(this.gameLoop);
+            };
+        }
+
+        const runGame = () => {
+            let selectedMode = 'name';
+            const modeNameBtn = document.getElementById('mode-name-btn');
+            const modeAllBtn = document.getElementById('mode-all-btn');
+            const nameContainer = document.getElementById('name-input-container');
+            const bgMusic = document.getElementById('bg-music');
+            const musicBtn = document.getElementById('music-btn');
+
+            let isMusicPlaying = false;
+
+            const toggleMusic = () => {
+                if (isMusicPlaying) {
+                    bgMusic.pause();
+                    musicBtn.innerText = '🔇';
+                    isMusicPlaying = false;
+                } else {
+                    bgMusic.play().then(() => {
+                        musicBtn.innerText = '🎵';
+                        isMusicPlaying = true;
+                    }).catch(e => console.log("Music play error:", e));
+                }
+            };
+
+            musicBtn.onclick = toggleMusic;
+
+            modeNameBtn.onclick = () => {
+                selectedMode = 'name';
+                modeNameBtn.classList.add('active');
+                modeAllBtn.classList.remove('active');
+                nameContainer.style.display = 'flex';
+            };
+
+            modeAllBtn.onclick = () => {
+                selectedMode = 'all';
+                modeAllBtn.classList.add('active');
+                modeNameBtn.classList.remove('active');
+                nameContainer.style.display = 'none';
+            };
+
+            const startBtn = document.getElementById('start-btn');
+            if (startBtn) {
+                startBtn.onclick = () => {
+                    if (!isMusicPlaying) toggleMusic();
+
+                    let gameInstance = new Game();
+                    gameInstance.mode = selectedMode;
+
+                    if (selectedMode === 'name') {
+                        let nameVal = document.getElementById('name-input').value.trim().toUpperCase().replace(/[^A-Z]/g, '');
+                        if (nameVal.length === 0) nameVal = "NETA"; 
+                        gameInstance.playerName = nameVal;
+                        gameInstance.letterSequence = nameVal.split('');
+                    } else {
+                        gameInstance.letterSequence = Object.keys(ALPHABET);
+                    }
+                    
+                    document.getElementById('start-screen').style.display = 'none';
+                    
+                    setTimeout(() => {
+                        gameInstance.resizeCanvas();
+                        gameInstance.startLevel();
+                        gameInstance.gameLoop(); 
+                    }, 100);
+                };
+            }
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runGame);
+        } else {
+            runGame();
+        }
+    })();
+    </script>
+</body>
+</html>
