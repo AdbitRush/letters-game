@@ -164,7 +164,7 @@
         .progress-bar { width: 140px; height: 8px; border-radius: 99px; background: #E7EEF5; overflow: hidden; flex: 0 0 auto; }
         .progress-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--yellow), #FFC233); border-radius: 99px; transition: width .3s ease; }
         #stars-display, #total-stars { font-weight: 700; }
-        .progress-count { font-size: 14px; font-weight: 600; white-space: nowrap; }
+        .progress-count { font-size: 14px; font-weight: 600; white-space: nowrap; direction: ltr; unicode-bidi: isolate; }
         .progress-count .num { transition: transform .2s ease; display: inline-block; }
         .progress-count.pop .num { animation: countPop .26s ease; }
         @keyframes countPop { 0% { transform: scale(1); } 50% { transform: scale(1.35); } 100% { transform: scale(1); } }
