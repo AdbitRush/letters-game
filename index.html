@@ -381,6 +381,11 @@
 
         const SWEETS = ['🍬', '🍭', '🍩', '🍦'];
 
+        // מפריעים מתונים שמסתובבים על קטע מהמסלול -- לא "אויב" מפחיד, רק מישהו
+        // שצריך לתזמן את המשיכה כדי לא לפגוש. נגיעה עולה חיים, לא נגמר המשחק.
+        const ENEMY_ICON = '👻';
+        const ENEMY_SIZE = 42;
+
         const ALPHABET = {
             'A': [{x:0.2,y:0.8}, {x:0.5,y:0.2}, {x:0.8,y:0.8}, {x:0.65,y:0.5}, {x:0.35,y:0.5}],
             'B': [{x:0.2,y:0.2}, {x:0.2,y:0.8}, {x:0.2,y:0.2}, {x:0.7,y:0.3}, {x:0.4,y:0.5}, {x:0.7,y:0.7}, {x:0.2,y:0.8}],
@@ -460,8 +465,12 @@
         function playVictorySound() {
             [523, 587, 659, 784, 880, 1047].forEach((f, i) => setTimeout(() => playTone(f, 0.3, 'square'), i * 120));
         }
+        function playHitSound() { playTone(180, 0.22, 'sawtooth'); }
         function hapticTick() {
             try { if (navigator.vibrate) navigator.vibrate(25); } catch (e) {}
+        }
+        function hapticHit() {
+            try { if (navigator.vibrate) navigator.vibrate([0, 40, 30, 40]); } catch (e) {}
         }
 
         // צבעי המערכת — לא הפלטה הישנה של מג'נטה/ציאן
@@ -571,6 +580,9 @@
                 this.isLevelComplete = false;
                 this.isGrandVictory = false;
 
+                this.enemies = [];
+                this.hitFlash = 0;
+
                 this.pathProgress = 0;
                 this.totalPathLength = 0;
                 this.segments = [];
@@ -657,7 +669,10 @@
                 this.magnetTime = 0;
                 this.hasDraggedOnce = false;
                 this.missFlash = 0;
+                this.hitFlash = 0;
                 this.startPulse = 60;
+                // חיים מתחדשים בכל אות מההתחלה — לא נגררים דלים מהאות הקודמת.
+                this.lives = 3;
                 document.getElementById('modal').classList.add('hidden');
                 document.getElementById('victory-screen').classList.add('hidden');
 
@@ -709,8 +724,65 @@
                 }
 
                 this.starsCollected = 0;
+                this.spawnEnemies();
                 this.updateUI(letterChar);
                 this.showHint('גררו על הקו כדי לכתוב ' + letterChar);
+            }
+
+            /* שני "רוחות" נודדות על קטעים נפרדים מהמסלול (לא באזור ההתחלה, כדי
+             * שהיציאה תמיד תהיה בטוחה) -- לא ריצה חופשית ב-2D, אלא נדנוד קדימה
+             * ואחורה על ציר המרחק-על-המסלול, כמו השחקן/פריטים עצמם, כי הליכה
+             * וקולזיה כאן כולן מוגדרות באותו ציר. המהירות יחסית לאורך המסלול
+             * (לא פיקסלים קבועים), כך שהיא מרגישה אחידה על כל אות ומסך.
+             */
+            spawnEnemies() {
+                this.enemies = [];
+                if (this.totalPathLength <= 0) return;
+                const count = 2;
+                const bandStart = 0.16, bandEnd = 0.86; // לא צפוף על ההתחלה/הסיום
+                const bandSize = (bandEnd - bandStart) / count;
+                for (let i = 0; i < count; i++) {
+                    const lo = (bandStart + i * bandSize) * this.totalPathLength;
+                    const hi = (bandStart + (i + 1) * bandSize) * this.totalPathLength;
+                    this.enemies.push({
+                        lo, hi,
+                        pos: lo + (hi - lo) * (0.3 + Math.random() * 0.4),
+                        dir: Math.random() < 0.5 ? 1 : -1,
+                        speed: this.totalPathLength * 0.0016,
+                        hitCooldown: 0
+                    });
+                }
+            }
+
+            updateEnemies() {
+                if (this.isLevelComplete) return;
+                this.enemies.forEach(en => {
+                    en.pos += en.dir * en.speed;
+                    if (en.pos > en.hi) { en.pos = en.hi; en.dir = -1; }
+                    if (en.pos < en.lo) { en.pos = en.lo; en.dir = 1; }
+                    if (en.hitCooldown > 0) en.hitCooldown--;
+                });
+                if (this.hitFlash > 0) this.hitFlash--;
+            }
+
+            /* פגיעה מזיזה אחורה קצת (לא מוחקת ממתקים שכבר נאספו) ונותנת רגע חסינות
+             * כדי שלא יאבדו כמה חיים ברצף מחפיפה אחת. אין "המשחק נגמר" קשה — ב-0
+             * חיים חוזרים לתחילת האות הנוכחית עם 3 חיים מלאים, כדי שזה יישאר
+             * משחק ילדים מזמין ולא מתסכל. */
+            hitByEnemy(en) {
+                en.hitCooldown = 90;
+                this.lives--;
+                this.hitFlash = 18;
+                this.pathProgress = Math.max(0, this.pathProgress - this.totalPathLength * 0.05);
+                playHitSound();
+                hapticHit();
+                const letterChar = this.letterSequence[this.currentLetterIdx];
+                this.updateUI(letterChar);
+
+                if (this.lives <= 0) {
+                    this.showHint('אופס! מנסים שוב 💪');
+                    setTimeout(() => this.startLevel(), 700);
+                }
             }
 
             showHint(text) {
@@ -832,6 +904,13 @@
                             playCollectSound();
                         }
                     }
+                });
+
+                this.enemies.forEach(en => {
+                    if (en.hitCooldown > 0) return;
+                    const pos = this.getPointAtLength(en.pos);
+                    const dist = Math.hypot(playerPos.x - pos.x, playerPos.y - pos.y);
+                    if (dist < (this.playerSize / 2 + ENEMY_SIZE / 2 - 8)) this.hitByEnemy(en);
                 });
             }
 
@@ -1015,6 +1094,30 @@
                 this.ctx.restore();
             }
 
+            drawEnemies() {
+                this.ctx.font = `${ENEMY_SIZE}px Arial`;
+                this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+                this.enemies.forEach(en => {
+                    const pos = this.getPointAtLength(en.pos);
+                    // "נשימה" עדינה -- קנה מידה בלבד, לא זז מהנקודה שמשמשת לקולזיה.
+                    const breathe = 1 + Math.sin(en.pos * 0.05 + performance.now() / 260) * 0.06;
+                    this.ctx.save();
+                    this.ctx.globalAlpha = en.hitCooldown > 0 ? 0.45 : 1;
+                    this.ctx.translate(pos.x, pos.y);
+                    this.ctx.scale(breathe, breathe);
+                    this.ctx.fillText(ENEMY_ICON, 0, 0);
+                    this.ctx.restore();
+                });
+            }
+
+            drawHitFlash() {
+                if (this.hitFlash <= 0) return;
+                this.ctx.save();
+                this.ctx.fillStyle = `rgba(255,60,60,${(this.hitFlash / 18) * 0.28})`;
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+                this.ctx.restore();
+            }
+
             draw() {
                 if (this.bgLoaded) {
                     this.drawBackgroundCover();
@@ -1057,6 +1160,8 @@
                     }
                 });
 
+                this.drawEnemies();
+
                 this.confettiList.forEach(c => {
                     c.update(this.canvas.height);
                     c.draw(this.ctx);
@@ -1070,10 +1175,13 @@
                 this.ctx.font = `${this.playerSize}px Arial`;
                 this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
                 this.ctx.fillText(this.selectedCharacter.emoji, playerPos.x, playerPos.y);
+
+                this.drawHitFlash();
             }
 
             gameLoop = () => {
                 this.handleInput();
+                this.updateEnemies();
                 this.checkCollisions();
                 this.draw();
                 requestAnimationFrame(this.gameLoop);
