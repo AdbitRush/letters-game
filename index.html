@@ -506,15 +506,18 @@
         }
 
         // המסלול היה קו ישר בין נקודות המפרט — עיגולים כמו O/C/G/S יצאו מצולעים עם
-        // פינות נראות במקום עקומה חלקה. מחליק כל מקטע לעקומת Catmull-Rom שעוברת
-        // בדיוק דרך כל הנקודות המקוריות (לא משנה את צורת האות ואת מיקומי הפריטים,
-        // רק את מספר/עקמומיות הקטעים הקטנים בין הנקודות) — חוץ ממקטעים שנוגעים
-        // בפינה חדה אמיתית (L, V, קודקוד ה-A וכו'), שנשארים קו ישר כדי שהאות עדיין
-        // תיראה כמו האות.
-        function smoothLetterPath(pts, samplesPerSeg) {
+        // פינות נראות במקום עקומה חלקה. עקומת ספליין דרך הנקודות המקוריות התבררה
+        // כחלשה מדי מול עובי הקו (62px) — הקשת נשארה קרוב מדי למיתר הפנימי. הפתרון
+        // כאן הוא "עיגול פינה" אמיתי: בכל פינה מתונה חותכים קצת מכל צלע נכנסת/יוצאת
+        // ומציירים קשת ריבועית שהנקודה המקורית היא נקודת הבקרה שלה, כך שהקשת נוגעת
+        // כמעט באותו מקום שהפינה החדה נגעה בו — לא משנה את צורת האות/מיקומי הפריטים,
+        // רק את מספר/עקמומיות הקטעים הקטנים בין הנקודות. פינה חדה אמיתית (L, V,
+        // קודקוד ה-A וכו') נשארת קו ישר כדי שהאות עדיין תיראה כמו האות.
+        function smoothLetterPath(pts, cornerAngle, roundFrac, curveSamples) {
             if (pts.length < 3) return pts.slice();
-            const CORNER_ANGLE = 75; // מעלות — פנייה חדה מזה נשארת פינה, לא מתעגלת
             const get = i => pts[Math.max(0, Math.min(pts.length - 1, i))];
+            const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y);
+            const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
             const turnAngle = (a, b, c) => {
                 const v1x = b.x - a.x, v1y = b.y - a.y, v2x = c.x - b.x, v2y = c.y - b.y;
                 const len1 = Math.hypot(v1x, v1y) || 1, len2 = Math.hypot(v2x, v2y) || 1;
@@ -522,20 +525,29 @@
                 return Math.acos(dot) * 180 / Math.PI;
             };
             const isCorner = i => (i <= 0 || i >= pts.length - 1) ? true
-                : turnAngle(get(i - 1), get(i), get(i + 1)) > CORNER_ANGLE;
+                : turnAngle(get(i - 1), get(i), get(i + 1)) > cornerAngle;
+
+            // בפינה "עגולה" חותכים קצת מכל צלע הנכנסת/יוצאת ומציירים קימור ריבועי
+            // שהנקודה המקורית היא נקודת הבקרה שלו — כך העיגול נוגע כמעט באותו מקום
+            // שהפינה החדה הייתה נוגעת בו, ולא נשאר בתוך המיתר כמו עקומת ספליין רגילה.
             const out = [pts[0]];
-            for (let i = 0; i < pts.length - 1; i++) {
-                const p1 = pts[i], p2 = pts[i + 1];
-                if (isCorner(i) || isCorner(i + 1)) { out.push(p2); continue; }
-                const p0 = get(i - 1), p3 = get(i + 2);
-                for (let s = 1; s <= samplesPerSeg; s++) {
-                    const t = s / samplesPerSeg, t2 = t * t, t3 = t2 * t;
+            for (let i = 1; i < pts.length - 1; i++) {
+                if (isCorner(i)) { out.push(pts[i]); continue; }
+                const prev = pts[i - 1], cur = pts[i], next = pts[i + 1];
+                const f = Math.min(roundFrac, 0.5);
+                const before = lerp(cur, prev, f);
+                const after = lerp(cur, next, f);
+                out.push(before);
+                for (let s = 1; s <= curveSamples; s++) {
+                    const t = s / (curveSamples + 1), mt = 1 - t;
                     out.push({
-                        x: 0.5 * ((2 * p1.x) + (-p0.x + p2.x) * t + (2*p0.x - 5*p1.x + 4*p2.x - p3.x) * t2 + (-p0.x + 3*p1.x - 3*p2.x + p3.x) * t3),
-                        y: 0.5 * ((2 * p1.y) + (-p0.y + p2.y) * t + (2*p0.y - 5*p1.y + 4*p2.y - p3.y) * t2 + (-p0.y + 3*p1.y - 3*p2.y + p3.y) * t3)
+                        x: mt * mt * before.x + 2 * mt * t * cur.x + t * t * after.x,
+                        y: mt * mt * before.y + 2 * mt * t * cur.y + t * t * after.y
                     });
                 }
+                out.push(after);
             }
+            out.push(pts[pts.length - 1]);
             return out;
         }
 
@@ -669,7 +681,7 @@
                 this.totalPathLength = 0;
 
                 const rawPts = pointsDef.map(p => ({ x: this.pathOffset.x + p.x * maxW, y: this.pathOffset.y + p.y * maxH }));
-                const smoothPts = smoothLetterPath(rawPts, 14);
+                const smoothPts = smoothLetterPath(rawPts, 75, 0.38, 10);
 
                 for (let i = 0; i < smoothPts.length - 1; i++) {
                     let p1 = smoothPts[i];
